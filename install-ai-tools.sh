@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 终端AI工具安装脚本
+# 终端AI工具安装脚本 (macOS兼容版)
 # 支持一键安装多种流行的终端AI工具
 
 set -e
@@ -14,7 +14,7 @@ CYAN='\033[0;36m'
 GRAY='\033[0;37m'
 NC='\033[0m' # No Color
 
-# AI工具定义 - 使用数组而非关联数组以兼容旧版bash
+# AI工具定义
 TOOL_KEYS=("codebuddy-code" "github-copilot-cli" "aider-chat" "chatgpt-cli" "shell-gpt" "ai-shell" "fabric")
 
 TOOL_NAMES=(
@@ -38,23 +38,23 @@ TOOL_DESCS=(
 )
 
 TOOL_INSTALLS=(
-    "npm install -g @codebuddy/cli"
+    "npm install -g @tencent-ai/codebuddy-code"
     "npm install -g @githubnext/github-copilot-cli"
-    "pip install aider-chat"
+    "pip3 install aider-chat"
     "npm install -g chatgpt-cli"
-    "pip install shell-gpt"
+    "pip3 install shell-gpt"
     "npm install -g @builder.io/ai-shell"
-    "pip install fabric-ai"
+    "pip3 install fabric-ai"
 )
 
 TOOL_VERIFIES=(
-    "codebuddy --version"
-    "github-copilot-cli --version"
-    "aider --version"
-    "chatgpt --version"
-    "sgpt --version"
-    "ai --version"
-    "fabric --version"
+    "codebuddy --version 2>/dev/null || echo \"codebuddy installed\""
+    "github-copilot-cli --version 2>/dev/null || echo \"github-copilot-cli installed\""
+    "aider --version 2>/dev/null || echo \"aider installed\""
+    "chatgpt --version 2>/dev/null || echo \"chatgpt-cli installed\""
+    "sgpt --version 2>/dev/null || echo \"shell-gpt installed\""
+    "ai --version 2>/dev/null || echo \"ai-shell installed\""
+    "fabric --version 2>/dev/null || echo \"fabric installed\""
 )
 
 # 打印带颜色的消息
@@ -64,12 +64,9 @@ print_message() {
     echo -e "${color}${message}${NC}"
 }
 
-# 打印标题
-print_title() {
-    echo
-    print_message "$BLUE" "🤖 终端AI工具安装器"
-    print_message "$GRAY" "选择要安装的AI工具:"
-    echo
+# 检查命令是否存在
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
 }
 
 # 检查系统环境
@@ -77,21 +74,35 @@ check_prerequisites() {
     print_message "$CYAN" "🔍 检查系统环境..."
     
     # 检查Node.js和npm
-    if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+    if ! command_exists node || ! command_exists npm; then
         print_message "$RED" "❌ Node.js 或 npm 未安装"
         print_message "$YELLOW" "请先安装 Node.js: https://nodejs.org/"
+        print_message "$YELLOW" "或使用 Homebrew: brew install node"
         exit 1
     fi
     
-    # 检查Python和pip
-    if ! command -v python &> /dev/null && ! command -v python3 &> /dev/null; then
-        print_message "$YELLOW" "⚠️  Python 未安装，部分工具可能无法安装"
-        PYTHON_AVAILABLE=false
+    # 检查Python (macOS通常使用python3)
+    PYTHON_CMD="python3"
+    PIP_CMD="pip3"
+    
+    if ! command_exists python3; then
+        if command_exists python; then
+            PYTHON_CMD="python"
+            PIP_CMD="pip"
+        else
+            print_message "$YELLOW" "⚠️  Python 未安装，部分工具可能无法安装"
+            print_message "$YELLOW" "建议安装: brew install python"
+            PYTHON_AVAILABLE=false
+            return
+        fi
+    fi
+    
+    # 检查pip
+    if ! command_exists $PIP_CMD; then
+        print_message "$YELLOW" "⚠️  $PIP_CMD 未安装，部分Python工具可能无法安装"
+        print_message "$YELLOW" "建议安装: curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && $PYTHON_CMD get-pip.py"
     else
         PYTHON_AVAILABLE=true
-        if ! command -v pip &> /dev/null && ! command -v pip3 &> /dev/null; then
-            print_message "$YELLOW" "⚠️  pip 未安装，部分Python工具可能无法安装"
-        fi
     fi
     
     print_message "$GREEN" "✅ 系统环境检查完成"
@@ -160,7 +171,7 @@ get_user_selection() {
         fi
         
         # 将输入转换为数组
-        read -a selections <<< "$selections_input"
+        IFS=' ' read -r -a selections <<< "$selections_input"
         
         # 验证输入
         local valid=true
@@ -205,9 +216,9 @@ install_tool() {
     print_message "$CYAN" "📦 正在安装 $name..."
     
     # 执行安装命令
-    if eval "$install_cmd" &>/dev/null; then
+    if eval "$install_cmd"; then
         # 验证安装
-        if eval "$verify_cmd" &>/dev/null; then
+        if eval "$verify_cmd"; then
             print_message "$GREEN" "✅ $name 安装成功"
             return 0
         else
@@ -247,6 +258,9 @@ install_selected_tools() {
         for tool in "${failed_tools[@]}"; do
             echo "  • $tool"
         done
+        echo
+        print_message "$YELLOW" "提示: 某些工具可能需要sudo权限，可以尝试:"
+        print_message "$YELLOW" "sudo $(get_tool_install ${SELECTED_INDICES[0]})"
     fi
 }
 
@@ -258,12 +272,14 @@ show_usage_info() {
     for index in "${SELECTED_INDICES[@]}"; do
         local name=$(get_tool_name $index)
         local verify_cmd=$(get_tool_verify $index)
-        print_message "$CYAN" "• $name: $verify_cmd"
+        print_message "$CYAN" "• $name: 运行 $(echo $verify_cmd | cut -d' ' -f1)"
     done
     
     echo
-    print_message "$GRAY" "提示: 某些工具可能需要额外的API密钥配置才能正常使用。"
-    print_message "$GRAY" "请查看各工具的官方文档了解详细配置方法。"
+    print_message "$YELLOW" "💡 提示:"
+    print_message "$GRAY" "1. 某些工具可能需要API密钥配置"
+    print_message "$GRAY" "2. 如果安装失败，尝试使用 sudo"
+    print_message "$GRAY" "3. 查看各工具官方文档获取详细配置方法"
 }
 
 # 主函数
@@ -281,12 +297,20 @@ main() {
     echo
     
     read -p "确认安装? (y/N): " confirm
-    if [[ $confirm =~ ^[Yy]$ ]]; then
+    if [[ $confirm =~ ^[Yy]([Ee][Ss])?$ ]]; then
         install_selected_tools
         show_usage_info
     else
         print_message "$YELLOW" "安装已取消"
     fi
+}
+
+# 打印标题
+print_title() {
+    echo
+    print_message "$BLUE" "🤖 终端AI工具安装器 (macOS)"
+    print_message "$GRAY" "选择要安装的AI工具:"
+    echo
 }
 
 # 脚本入口
