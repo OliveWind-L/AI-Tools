@@ -282,6 +282,14 @@ show_usage_info() {
     print_message "$GRAY" "3. 查看各工具官方文档获取详细配置方法"
 }
 
+# 打印标题
+print_title() {
+    echo
+    print_message "$BLUE" "🤖 终端AI工具安装器 (macOS)"
+    print_message "$GRAY" "选择要安装的AI工具:"
+    echo
+}
+
 # 主函数
 main() {
     print_title
@@ -305,15 +313,7 @@ main() {
     fi
 }
 
-# 打印标题
-print_title() {
-    echo
-    print_message "$BLUE" "🤖 终端AI工具安装器 (macOS)"
-    print_message "$GRAY" "选择要安装的AI工具:"
-    echo
-}
-
-# 脚本入口
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# 脚本入口 - 修复了这里的语法错误
+if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
     main "$@"
 fi
